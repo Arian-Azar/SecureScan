@@ -1,10 +1,10 @@
 # Production-only dependencies, on top of base.txt:
-#   - psycopg2-binary: PostgreSQL driver required by prod.py's DATABASES
-#     engine (django.db.backends.postgresql)
 #   - gunicorn: production-grade WSGI server (replaces `manage.py runserver`,
 #     which is dev-only and not safe/performant for real traffic)
+#
+# (psycopg2-binary moved to base.txt in Task 4 — dev now talks to a real
+# Postgres container too, so both environments need the driver.)
 
 -r base.txt
 
-psycopg2-binary==2.9.12
 gunicorn==26.0.0
