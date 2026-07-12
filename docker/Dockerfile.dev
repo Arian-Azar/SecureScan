@@ -1,0 +1,37 @@
+# Development image: prioritizes fast rebuilds and hot-reload via
+# `manage.py runserver`, NOT production readiness (no Gunicorn here —
+# that's docker/Dockerfile.prod, added in a later phase).
+
+FROM python:3.12-slim
+
+# Prevents Python from writing .pyc files and buffering stdout/stderr —
+# both make container logs behave predictably (you see print()/logging
+# output immediately instead of it being buffered).
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# System dependencies needed to build psycopg2 from source / run Django.
+# (libpq-dev is not strictly required for psycopg2-binary, but netcat is
+# handy later if we add a wait-for-db entrypoint script.)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpq-dev \
+        gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first and install BEFORE copying the rest of the source.
+# This is a deliberate Docker layer-caching trick: as long as
+# requirements/*.txt don't change, Docker reuses this layer instead of
+# re-running `pip install` on every single code change — much faster
+# rebuilds during day-to-day development.
+COPY requirements/ requirements/
+RUN pip install --no-cache-dir -r requirements/dev.txt
+
+# Now copy the actual project source.
+COPY . .
+
+EXPOSE 8000
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
