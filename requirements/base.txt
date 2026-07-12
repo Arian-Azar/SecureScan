@@ -1,0 +1,7 @@
+# Shared dependencies across every environment.
+# Pin exact versions (not ranges) so `pip install -r` is 100% reproducible —
+# an unpinned `django-environ>=0.14` could silently pull a breaking major
+# version months from now.
+
+Django==6.0.7
+django-environ==0.14.0

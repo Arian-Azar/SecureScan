@@ -12,18 +12,31 @@ security headers, etc.) should live here — see the sibling files instead.
 
 from pathlib import Path
 
+import environ
+
 # Points to the project root: .../securescan/  (three levels up from this file:
 # settings/base.py -> settings/ -> config/ -> project root)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# `env` is imported (via `from .base import *`) by dev.py and prod.py, so
+# they can each read their own environment variables with env.list()/env.db()
+# without re-initializing django-environ themselves.
+env = environ.Env()
+
+# Load the .env file from the project root, if present. In real deployments
+# (e.g. Docker, a hosting platform) environment variables are typically
+# injected directly by the platform and no .env file exists on disk — that's
+# fine, read_env() silently does nothing if the file is missing.
+environ.Env.read_env(BASE_DIR / '.env')
 
 
 # ---------------------------------------------------------------------------
 # Security
 # ---------------------------------------------------------------------------
-# NOTE: SECRET_KEY is intentionally left as an insecure placeholder here.
-# It will be moved to an environment variable in Task 3 (django-environ).
-# Do NOT deploy anything with this key.
-SECRET_KEY = 'django-insecure-placeholder-will-move-to-env-in-task-3'
+# No default is provided on purpose: if SECRET_KEY is missing from the
+# environment, Django should fail loudly at startup rather than silently
+# falling back to an insecure, guessable value.
+SECRET_KEY = env('SECRET_KEY')
 
 
 # ---------------------------------------------------------------------------

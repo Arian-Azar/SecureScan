@@ -1,0 +1,6 @@
+# Development dependencies. SQLite (dev.py's fallback DB) needs no extra
+# driver — it ships inside Python's standard library — so for now this file
+# is just base.txt. Debugging/testing tools (e.g. django-debug-toolbar,
+# pytest-django) will be added here as later milestones need them.
+
+-r base.txt

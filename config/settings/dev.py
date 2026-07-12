@@ -11,17 +11,15 @@ from .base import *  # noqa: F401,F403
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
-# NOTE: SQLite is a temporary placeholder so `manage.py check` / `runserver`
-# work right now. It will be replaced by PostgreSQL (via django-environ +
-# DATABASE_URL) in Task 3, and wired to the Dockerized Postgres service in
-# Task 4.
+# `env.db()` parses a DATABASE_URL like postgres://user:pass@host:port/name
+# into Django's DATABASES dict. If DATABASE_URL is unset (e.g. you haven't
+# started the Postgres container yet), we fall back to SQLite so you can
+# still run `manage.py runserver` and `manage.py check` right away — this
+# fallback disappears once Task 4's Docker Compose is running.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 }
 
 # Emails are printed to the console instead of actually being sent —

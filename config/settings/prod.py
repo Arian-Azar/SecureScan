@@ -13,20 +13,13 @@ from .base import *  # noqa: F401,F403
 
 DEBUG = False
 
-# TODO (Task 3): read from env, e.g. env.list('ALLOWED_HOSTS')
-ALLOWED_HOSTS = []
+# No defaults here, unlike dev.py: in production, a missing environment
+# variable should crash the app at startup, not silently fall back to
+# something insecure or wrong.
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
-# TODO (Task 3): read from env via env.db(), backed by the Dockerized
-# PostgreSQL service introduced in Task 4.
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'CHANGE_ME',
-        'USER': 'CHANGE_ME',
-        'PASSWORD': 'CHANGE_ME',
-        'HOST': 'CHANGE_ME',
-        'PORT': '5432',
-    }
+    'default': env.db('DATABASE_URL')
 }
 
 # --- Security hardening ----------------------------------------------------
