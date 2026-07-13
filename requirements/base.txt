@@ -11,3 +11,9 @@ django-environ==0.14.0
 # fallback in dev.py only applies when running manage.py bare on the host,
 # outside Docker.
 psycopg2-binary==2.9.12
+
+# Required by User.avatar (ImageField) — Django's ImageField validates that
+# uploaded files are genuine, openable images, and that validation logic is
+# delegated to Pillow. Without it, `makemigrations`/`check` raise an error
+# the moment an ImageField exists on any model.
+Pillow==12.1.1

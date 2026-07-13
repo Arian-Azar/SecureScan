@@ -14,9 +14,18 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 ]
+
+# Only serve user-uploaded media through Django itself in DEBUG (dev). In
+# production this MUST be handled by a real web server / storage backend —
+# Django serving media directly does not scale and isn't in scope until a
+# later phase actually needs file uploads at production volume.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

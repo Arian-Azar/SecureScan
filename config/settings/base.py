@@ -119,10 +119,26 @@ USE_TZ = True
 
 
 # ---------------------------------------------------------------------------
-# Static files
+# Custom user model
+# ---------------------------------------------------------------------------
+# Must be set before the FIRST migrate ever run against a given database —
+# changing it afterwards requires resetting the database, since other
+# apps' tables (e.g. admin's LogEntry) have foreign keys pointing at
+# whichever model this names.
+AUTH_USER_MODEL = 'accounts.User'
+
+
+# ---------------------------------------------------------------------------
+# Static & media files
 # ---------------------------------------------------------------------------
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Used by User.avatar (ImageField). Served via config/urls.py in dev only;
+# production serves media through a real storage backend/CDN — deferred
+# until a later phase actually needs file uploads at scale.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 
 # ---------------------------------------------------------------------------
