@@ -1,0 +1,220 @@
+diff --git a/apps/accounts/serializers.py b/apps/accounts/serializers.py
+new file mode 100644
+index 0000000..69eedf9
+--- /dev/null
++++ b/apps/accounts/serializers.py
+@@ -0,0 +1,42 @@
++from django.contrib.auth.password_validation import validate_password
++from rest_framework import serializers
++
++from .models import User
++
++
++class RegisterSerializer(serializers.ModelSerializer):
++    """
++    Handles account creation. Two write-only password fields (not one) so
++    the client confirms the password before it's ever sent to the server
++    as a single value — catches typos client-side via `validate()` below,
++    the same UX pattern as Django's own admin add-user form.
++    """
++
++    password = serializers.CharField(
++        write_only=True,
++        validators=[validate_password],
++        style={'input_type': 'password'},
++    )
++    password_confirm = serializers.CharField(
++        write_only=True,
++        style={'input_type': 'password'},
++    )
++
++    class Meta:
++        model = User
++        fields = ['email', 'full_name', 'password', 'password_confirm']
++
++    def validate(self, attrs):
++        if attrs['password'] != attrs['password_confirm']:
++            raise serializers.ValidationError(
++                {'password_confirm': 'Passwords do not match.'}
++            )
++        return attrs
++
++    def create(self, validated_data):
++        # password_confirm never reaches User.objects.create_user() — it
++        # exists only for this serializer's own validation, not as a model
++        # field.
++        validated_data.pop('password_confirm')
++        password = validated_data.pop('password')
++        return User.objects.create_user(password=password, **validated_data)
+diff --git a/apps/accounts/urls.py b/apps/accounts/urls.py
+new file mode 100644
+index 0000000..5e518be
+--- /dev/null
++++ b/apps/accounts/urls.py
+@@ -0,0 +1,17 @@
++from django.urls import path
++from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
++
++from .views import LogoutView, RegisterView
++
++app_name = 'accounts'
++
++urlpatterns = [
++    path('register/', RegisterView.as_view(), name='register'),
++    # TokenObtainPairView/TokenRefreshView are used directly (not
++    # wrapped) — they already do exactly what "login" and "refresh" need,
++    # and SimpleJWT reads USERNAME_FIELD from AUTH_USER_MODEL dynamically,
++    # so this form (email + password) just works with our custom User.
++    path('login/', TokenObtainPairView.as_view(), name='login'),
++    path('refresh/', TokenRefreshView.as_view(), name='refresh'),
++    path('logout/', LogoutView.as_view(), name='logout'),
++]
+diff --git a/apps/accounts/views.py b/apps/accounts/views.py
+index 91ea44a..4ccb378 100644
+--- a/apps/accounts/views.py
++++ b/apps/accounts/views.py
+@@ -1,3 +1,54 @@
+-from django.shortcuts import render
++from rest_framework import generics, status
++from rest_framework.permissions import AllowAny, IsAuthenticated
++from rest_framework.response import Response
++from rest_framework.views import APIView
++from rest_framework_simplejwt.exceptions import TokenError
++from rest_framework_simplejwt.tokens import RefreshToken
+ 
+-# Create your views here.
++from .models import User
++from .serializers import RegisterSerializer
++
++
++class RegisterView(generics.CreateAPIView):
++    """
++    POST /api/auth/register/
++
++    Deliberately does NOT log the user in / return tokens on success —
++    email verification (a later task in this same milestone) will sit
++    between "account created" and "account usable", so returning tokens
++    here would let an unverified account act as if it were verified.
++    """
++    queryset = User.objects.all()
++    serializer_class = RegisterSerializer
++    permission_classes = [AllowAny]
++
++
++class LogoutView(APIView):
++    """
++    POST /api/auth/logout/   body: {"refresh": "<refresh_token>"}
++
++    JWT access tokens can't be individually revoked before they expire —
++    that's inherent to how stateless JWTs work. What we CAN do is
++    blacklist the refresh token, so even though the current access token
++    stays valid until it naturally expires (at most ACCESS_TOKEN_LIFETIME
++    minutes, per base.py), the client can never mint a new one after this
++    call. Requiring IsAuthenticated means only the token's own owner can
++    invalidate it.
++    """
++    permission_classes = [IsAuthenticated]
++
++    def post(self, request):
++        refresh_token = request.data.get('refresh')
++        if not refresh_token:
++            return Response(
++                {'detail': 'refresh token is required.'},
++                status=status.HTTP_400_BAD_REQUEST,
++            )
++        try:
++            RefreshToken(refresh_token).blacklist()
++        except TokenError:
++            return Response(
++                {'detail': 'Invalid or already-blacklisted refresh token.'},
++                status=status.HTTP_400_BAD_REQUEST,
++            )
++        return Response(status=status.HTTP_205_RESET_CONTENT)
+diff --git a/config/settings/base.py b/config/settings/base.py
+index 78485a9..7cf2cd7 100644
+--- a/config/settings/base.py
++++ b/config/settings/base.py
+@@ -11,6 +11,7 @@ security headers, etc.) should live here — see the sibling files instead.
+ """
+ 
+ from pathlib import Path
++from datetime import timedelta
+ 
+ import environ
+ 
+@@ -52,7 +53,12 @@ DJANGO_APPS = [
+ ]
+ 
+ THIRD_PARTY_APPS = [
+-    # DRF, JWT, drf-spectacular, etc. will be added here starting Milestone 1.3
++    'rest_framework',
++    'rest_framework_simplejwt',
++    # Enables persisting blacklisted refresh tokens in the DB — required
++    # for real logout (see accounts/views.py LogoutView) and for token
++    # rotation to actually invalidate the token being rotated away from.
++    'rest_framework_simplejwt.token_blacklist',
+ ]
+ 
+ LOCAL_APPS = [
+@@ -145,3 +151,33 @@ MEDIA_ROOT = BASE_DIR / 'media'
+ # Default primary key field type
+ # ---------------------------------------------------------------------------
+ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
++
++
++# ---------------------------------------------------------------------------
++# Django REST Framework
++# ---------------------------------------------------------------------------
++REST_FRAMEWORK = {
++    'DEFAULT_AUTHENTICATION_CLASSES': (
++        'rest_framework_simplejwt.authentication.JWTAuthentication',
++    ),
++    # Deny-by-default: every view requires authentication unless it
++    # explicitly opts out with permission_classes = [AllowAny] (register,
++    # login, refresh do this). Safer default than the reverse — a
++    # forgotten permission_classes on a new view fails closed, not open.
++    'DEFAULT_PERMISSION_CLASSES': (
++        'rest_framework.permissions.IsAuthenticated',
++    ),
++}
++
++SIMPLE_JWT = {
++    # Short-lived access token limits the damage window if one leaks;
++    # the longer-lived refresh token is what gets blacklisted on logout.
++    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
++    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
++    # Every refresh issues a brand-new refresh token AND blacklists the
++    # old one — so a stolen refresh token becomes useless the moment the
++    # legitimate client refreshes again.
++    'ROTATE_REFRESH_TOKENS': True,
++    'BLACKLIST_AFTER_ROTATION': True,
++    'UPDATE_LAST_LOGIN': True,
++}
+diff --git a/config/urls.py b/config/urls.py
+index 01c6cc4..a140387 100644
+--- a/config/urls.py
++++ b/config/urls.py
+@@ -17,10 +17,11 @@ Including another URLconf
+ from django.conf import settings
+ from django.conf.urls.static import static
+ from django.contrib import admin
+-from django.urls import path
++from django.urls import include, path
+ 
+ urlpatterns = [
+     path('admin/', admin.site.urls),
++    path('api/auth/', include('apps.accounts.urls')),
+ ]
+ 
+ # Only serve user-uploaded media through Django itself in DEBUG (dev). In
+diff --git a/requirements/base.txt b/requirements/base.txt
+index f4a58ff..b7d139c 100644
+--- a/requirements/base.txt
++++ b/requirements/base.txt
+@@ -17,3 +17,6 @@ psycopg2-binary==2.9.12
+ # delegated to Pillow. Without it, `makemigrations`/`check` raise an error
+ # the moment an ImageField exists on any model.
+ Pillow==12.1.1
++
++djangorestframework==3.17.1
++djangorestframework-simplejwt==5.5.1

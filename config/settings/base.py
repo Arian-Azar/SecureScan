@@ -11,6 +11,7 @@ security headers, etc.) should live here — see the sibling files instead.
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 import environ
 
@@ -52,7 +53,12 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-    # DRF, JWT, drf-spectacular, etc. will be added here starting Milestone 1.3
+    'rest_framework',
+    'rest_framework_simplejwt',
+    # Enables persisting blacklisted refresh tokens in the DB — required
+    # for real logout (see accounts/views.py LogoutView) and for token
+    # rotation to actually invalidate the token being rotated away from.
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 LOCAL_APPS = [
@@ -145,3 +151,33 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 # ---------------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ---------------------------------------------------------------------------
+# Django REST Framework
+# ---------------------------------------------------------------------------
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    # Deny-by-default: every view requires authentication unless it
+    # explicitly opts out with permission_classes = [AllowAny] (register,
+    # login, refresh do this). Safer default than the reverse — a
+    # forgotten permission_classes on a new view fails closed, not open.
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SIMPLE_JWT = {
+    # Short-lived access token limits the damage window if one leaks;
+    # the longer-lived refresh token is what gets blacklisted on logout.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # Every refresh issues a brand-new refresh token AND blacklists the
+    # old one — so a stolen refresh token becomes useless the moment the
+    # legitimate client refreshes again.
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+}
