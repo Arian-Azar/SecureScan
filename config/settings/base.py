@@ -146,6 +146,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Used as the From: address for account emails (verification, later
+# password reset). A real domain-backed address would replace this once
+# actual email sending (not the console backend) is configured.
+DEFAULT_FROM_EMAIL = 'noreply@securescan.local'
+
 
 # ---------------------------------------------------------------------------
 # Default primary key field type
