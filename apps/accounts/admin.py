@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import Profile, User
+from .models import LoginHistory, Profile, User
 
 
 class ProfileInline(admin.StackedInline):
@@ -52,3 +52,19 @@ class UserAdmin(DjangoUserAdmin):
             'fields': ('email', 'full_name', 'password1', 'password2'),
         }),
     )
+
+
+@admin.register(LoginHistory)
+class LoginHistoryAdmin(admin.ModelAdmin):
+    """Read-only in the admin — this is an audit trail, not editable data."""
+
+    list_display = ['user', 'ip_address', 'browser', 'device', 'os', 'login_at']
+    list_filter = ['browser', 'os']
+    search_fields = ['user__email', 'ip_address']
+    ordering = ['-login_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
