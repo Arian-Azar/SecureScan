@@ -1,17 +1,16 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import LogoutView, RegisterView
+from .views import CustomTokenObtainPairView, LogoutView, RegisterView, VerifyEmailView
 
 app_name = 'accounts'
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
-    # TokenObtainPairView/TokenRefreshView are used directly (not
-    # wrapped) — they already do exactly what "login" and "refresh" need,
-    # and SimpleJWT reads USERNAME_FIELD from AUTH_USER_MODEL dynamically,
-    # so this form (email + password) just works with our custom User.
-    path('login/', TokenObtainPairView.as_view(), name='login'),
+    path('verify-email/', VerifyEmailView.as_view(), name='verify-email'),
+    # login uses CustomTokenObtainPairView (records LoginHistory), not
+    # SimpleJWT's stock TokenObtainPairView directly.
+    path('login/', CustomTokenObtainPairView.as_view(), name='login'),
     path('refresh/', TokenRefreshView.as_view(), name='refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
 ]
