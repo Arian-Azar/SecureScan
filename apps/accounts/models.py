@@ -113,3 +113,26 @@ class Profile(TimeStampedModel):
 
     def __str__(self):
         return f'Profile<{self.user.email}>'
+
+
+class LoginHistory(models.Model):
+    """
+    One row per successful login. Populated from CustomTokenObtainPairSerializer
+    (see serializers.py) — NOT from a signal on User.last_login, because we
+    also want the IP and parsed User-Agent, which only exist on the HTTP
+    request itself, not on the User model.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    browser = models.CharField(max_length=100, blank=True)
+    device = models.CharField(max_length=100, blank=True)
+    os = models.CharField(max_length=100, blank=True)
+    login_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-login_at']
+        verbose_name_plural = 'login history'
+
+    def __str__(self):
+        return f'{self.user.email} @ {self.login_at:%Y-%m-%d %H:%M} from {self.ip_address}'
