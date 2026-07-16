@@ -20,3 +20,9 @@ Pillow==12.1.1
 
 djangorestframework==3.17.1
 djangorestframework-simplejwt==5.5.1
+
+# Parses the raw User-Agent header into structured browser/device/OS info
+# for LoginHistory — storing only the raw string would leave "Browser" and
+# "Device" (fields the proposal explicitly asks for) unusable for display
+# or filtering.
+user-agents==2.2.0
